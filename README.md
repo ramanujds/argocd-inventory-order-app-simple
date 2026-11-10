@@ -49,7 +49,17 @@ kubectl delete -f application.yaml      # the finalizer also deletes the workloa
   Sealed Secrets / External Secrets / SOPS for anything real
 - no ordering between objects: `inventory-service` may restart a few times
   until MySQL is ready. The Helm sibling repo uses sync waves to avoid that
-- NodePorts 30081 / 30082 — don't run alongside another stack using them
+- NodePorts 30081 / 30082 are pinned. If another stack already holds them
+  (the `part-order-app-java` stacks do), the two Services fail with
+  `provided port is already allocated`, yet the app still reports
+  `Healthy` — check `argocd app get inventory-order-app` for
+  `OutOfSync`, and use `argocd app wait --sync --health`. Fix: free the
+  ports, or delete the `nodePort:` lines so Kubernetes picks free ones
+- the HPA targets memory at 60% of a 256Mi request, which the app exceeds
+  on its own, so inventory-service scales toward `maxReplicas`. Argo CD
+  doesn't fight it because the Deployment has no `replicas` field
+- `kubectl delete -f application.yaml` leaves the (empty) namespace behind:
+  `kubectl delete namespace inventory-order-app`
 
 Same app via Helm: `argocd-inventory-order-app-helm`. Many apps from one
 root: `argocd-app-of-apps`. Concepts and walkthrough:
